@@ -1,5 +1,11 @@
 # Json-logger Extension
 
+## 3.0.0 version - Release notes
+
+* Minimum supported mule runtime 4.6
+* Support for payload truncation based on size
+* Updated code and dependencies to support Java 17
+
 ## 2.1.0 version - Release notes
 
 * Minimum supported mule runtime 4.3
