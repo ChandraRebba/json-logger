@@ -24,7 +24,7 @@
           "type": "string",
           "sdk": {
             "required": true,
-            "example": "${mule.env}",
+            "default": "${mule.env}",
             "summary": "Name of the Mule Environment where the application is running. Recommendation: This value should be based on external property"
           }
         }
@@ -45,10 +45,10 @@
           "javaType": "boolean",
           "sdk": {
             "summary": "Indicate if log entries should be formatted or single line",
-            "default": true,
+            "default": false,
             "expressionSupport": "SUPPORTED"
           },
-          "note": "This field is mandatory. DON'T REMOVE"
+          "note": "This field is mandatory."
         },
         "logLocationInfo": {
           "type": "boolean",
@@ -58,7 +58,7 @@
             "default": true,
             "expressionSupport": "SUPPORTED"
           },
-          "note": "This field is mandatory. DON'T REMOVE"
+          "note": "This field is mandatory."
         },
         "parseContentFieldsInJsonOutput": {
           "type": "boolean",
@@ -68,7 +68,7 @@
             "default": true,
             "expressionSupport": "SUPPORTED"
           },
-          "note": "This field is mandatory. DON'T REMOVE"
+          "note": "This field is mandatory."
         },
         "disabledFields": {
           "type": "string",
@@ -78,17 +78,27 @@
             "required": false,
             "expressionSupport": "NOT_SUPPORTED"
           },
-          "note": "This field is mandatory. DON'T REMOVE"
+          "note": "This field is mandatory."
         },
         "contentFieldsDataMasking": {
           "type": "string",
           "sdk": {
-            "summary": "Indicate which fields (inside a content type with JSON output only) should be masked before from logging separated by comma. They can be JSON keys or JSON paths. If empty, no masking will be applied. Recommendation: This value should be based on external property",
+            "summary": "DO NOT CHANGE - Used to mask PII Fields in Content",
             "example": "client_secret,password,$.myArray[1].someField,$..path.to.a.field",
             "required": false,
             "expressionSupport": "NOT_SUPPORTED"
           },
-          "note": "This field is mandatory. DON'T REMOVE"
+          "note": "This field is mandatory."
+        },
+        "maxPayloadSize": {
+          "type": "integer",
+          "sdk": {
+            "summary": "Trimming logic for large payloads(Bytes)",
+            "default": "64000",
+            "required": false,
+            "expressionSupport": "NOT_SUPPORTED"
+          },
+          "note": "This field is mandatory."
         }
       },
       "sdk": {

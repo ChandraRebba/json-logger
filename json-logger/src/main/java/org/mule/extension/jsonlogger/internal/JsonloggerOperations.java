@@ -43,6 +43,7 @@ import java.util.*;
 import static org.mule.runtime.api.meta.ExpressionSupport.NOT_SUPPORTED;
 import static org.mule.runtime.api.metadata.DataType.TEXT_STRING;
 
+
 /**
  * This class is a container for operations, every public method in this class will be taken as an extension operation.
  */
@@ -118,7 +119,9 @@ public class JsonloggerOperations {
             // Load disabledFields
             List<String> disabledFields = (config.getJsonOutput().getDisabledFields() != null) ? Arrays.asList(config.getJsonOutput().getDisabledFields().split(",")) : new ArrayList<>();
             LOGGER.debug("The following fields will be disabled for logging: " + disabledFields);
-
+            LOGGER.info("Size Limit: " + config.getJsonOutput().getMaxPayloadSize() );
+            Integer payloadSizeLimit = (config.getJsonOutput().getMaxPayloadSize() == null ? 64000 : config.getJsonOutput().getMaxPayloadSize());
+            
             // Logic to disable fields and/or parse TypedValues as String for JSON log printing
             //Map<String, String> typedValuesAsString = new HashMap<>();
             Map<String, String> typedValuesAsString = new HashMap<>();
@@ -162,15 +165,64 @@ public class JsonloggerOperations {
                                                     JsonNode tempContentNode = om.getObjectMapper().readTree((InputStream)typedVal.getValue());
                                                     JsonMasker masker = new JsonMasker(dataMaskingFields, true);
                                                     JsonNode masked = masker.mask(tempContentNode);
-                                                    typedValuesAsJsonNode.put(k, masked);
-                                                } else {
-                                                    typedValuesAsJsonNode.put(k, om.getObjectMapper().readTree((InputStream)typedVal.getValue()));
+                                                    if(om.getObjectMapper().writeValueAsString(masked).length() > payloadSizeLimit){
+                                                    ObjectNode trimmedPayloadNode = om.getObjectMapper().createObjectNode();
+                                                    trimmedPayloadNode.put("error", "Trimming large value");
+                                                    trimmedPayloadNode.put("size", Integer.toString(om.getObjectMapper().writeValueAsString(masked).length()));
+                                                    trimmedPayloadNode.put("maxSizeAvailable", payloadSizeLimit.toString());
+                                                    trimmedPayloadNode.put("truncatedPayload", om.getObjectMapper().writeValueAsString(masked).substring(0,payloadSizeLimit - 1));
+                                                    typedValuesAsJsonNode.put(k, trimmedPayloadNode);
+                                                    LOGGER.debug("masked " + payloadSizeLimit.toString() );
+
+
+                                                        
+                                                    }
+                                                    
+                                                    else{
+                                                        typedValuesAsJsonNode.put(k, masked);
+                                                    }}
+                                                    
+                                                else{
+
+                                                {
+                                                    JsonNode plainText= om.getObjectMapper().readTree((InputStream)typedVal.getValue());
+                                                    if(om.getObjectMapper().writeValueAsString(plainText).length() > payloadSizeLimit)
+                                                    {
+
+                                                        ObjectNode trimmedPayloadNode = om.getObjectMapper().createObjectNode();
+                                                        trimmedPayloadNode.put("error", "Trimming large value");
+                                                        trimmedPayloadNode.put("size", Integer.toString(om.getObjectMapper().writeValueAsString(plainText).length()));
+                                                        trimmedPayloadNode.put("maxSizeAvailable", payloadSizeLimit.toString());
+                                                        trimmedPayloadNode.put("truncatedPayload", om.getObjectMapper().writeValueAsString(plainText).substring(0,payloadSizeLimit - 1));
+                                                        typedValuesAsJsonNode.put(k, trimmedPayloadNode);
+                                                        LOGGER.debug("Unmasked " + payloadSizeLimit.toString() );
+
+
+
+                                                    }
+                                                    else{
+                                                        typedValuesAsJsonNode.put(k, plainText);
+                                                    }
                                                 }
-                                            } else {
-                                                typedValuesAsString.put(k, (String) transformationService.transform(typedVal.getValue(), typedVal.getDataType(), TEXT_STRING));
                                             }
-                                        } else {
-                                            typedValuesAsString.put(k, (String) transformationService.transform(typedVal.getValue(), typedVal.getDataType(), TEXT_STRING));
+                                        }
+                                            
+                                            else {
+                                                String plainText = (String) transformationService.transform(typedVal.getValue(), typedVal.getDataType(), TEXT_STRING);
+                                                if(plainText.length() > payloadSizeLimit)
+                                                {
+                                                        ObjectNode trimmedPayloadNode = om.getObjectMapper().createObjectNode();
+                                                        trimmedPayloadNode.put("error", "Trimming large value");
+                                                        trimmedPayloadNode.put("size", Integer.toString(plainText.length()));
+                                                        trimmedPayloadNode.put("maxSizeAvailable", payloadSizeLimit.toString());
+                                                        trimmedPayloadNode.put("truncatedPayload", plainText.substring(0,payloadSizeLimit - 1));
+                                                        typedValuesAsJsonNode.put(k, trimmedPayloadNode);
+                                                        LOGGER.debug("String " + payloadSizeLimit.toString() );
+                                                }
+
+                                                else{
+                                                    typedValuesAsString.put(k, plainText);}
+                                            }
                                         }
                                     }
                                 }
@@ -303,6 +355,7 @@ public class JsonloggerOperations {
                 Map<String, String> locationInfoMap = locationInfoToMap(location);
                 loggerProcessor.putPOJO("locationInfo", locationInfoMap);
             }
+            // Add formatted timestamp entry to the logger
             loggerProcessor.put("timestamp", getFormattedTimestamp(loggerTimestamp));
             loggerProcessor.put("applicationName", configs.getConfig(configurationRef).getGlobalSettings().getApplicationName());
             loggerProcessor.put("applicationVersion", configs.getConfig(configurationRef).getGlobalSettings().getApplicationVersion());
@@ -407,18 +460,18 @@ public class JsonloggerOperations {
     }
 
     private String getFormattedTimestamp(Long loggerTimestamp) {
-    /*
-        Define timestamp:
-        - DateTime: Defaults to ISO format
-        - TimeZone: Defaults to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for valid timezones
-    */
-        DateTime dateTime = new DateTime(loggerTimestamp).withZone(org.joda.time.DateTimeZone.forID(System.getProperty("json.logger.timezone", "UTC")));
-        String timestamp = dateTime.toString();
-        if (System.getProperty("json.logger.dateformat") != null && !System.getProperty("json.logger.dateformat").equals("")) {
-            timestamp = dateTime.toString(System.getProperty("json.logger.dateformat"));
+        /*
+            Define timestamp:
+            - DateTime: Defaults to ISO format
+            - TimeZone: Defaults to UTC. Refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for valid timezones
+        */
+            DateTime dateTime = new DateTime(loggerTimestamp).withZone(org.joda.time.DateTimeZone.forID(System.getProperty("json.logger.timezone", "UTC")));
+            String timestamp = dateTime.toString();
+            if (System.getProperty("json.logger.dateformat") != null && !System.getProperty("json.logger.dateformat").equals("")) {
+                timestamp = dateTime.toString(System.getProperty("json.logger.dateformat"));
+            }
+            return timestamp;
         }
-        return timestamp;
-    }
 
     private String printObjectToLog(ObjectNode loggerObj, String priority, boolean isPrettyPrint) {
         ObjectWriter ow = (isPrettyPrint) ? om.getObjectMapper().writer().withDefaultPrettyPrinter() : om.getObjectMapper().writer();
